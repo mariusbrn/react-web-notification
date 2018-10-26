@@ -34,6 +34,7 @@ class Notification extends React.Component {
     this.windowFocus = true;
     this.onWindowFocus = this._onWindowFocus.bind(this);
     this.onWindowBlur = this._onWindowBlur.bind(this);
+    this._bindHandlers = this._bindHandlers.bind(this);
   }
 
   _onWindowFocus(){
@@ -57,6 +58,20 @@ class Notification extends React.Component {
         }
       });
     });
+  }
+
+  _bindHandlers(n, opt) {
+    n.onshow = e => {
+      this.props.onShow(e, opt.tag);
+      setTimeout(() => {
+        this.close(n);
+      }, this.props.timeout);
+    };
+    n.onclick = e => { this.props.onClick(e, opt.tag); };
+    n.onclose = e => { this.props.onClose(e, opt.tag); };
+    n.onerror = e => { this.props.onError(e, opt.tag); };
+
+    this.notifications[opt.tag] = n;
   }
 
   componentDidMount(){
@@ -101,18 +116,17 @@ class Notification extends React.Component {
       }
 
       if (!this.notifications[opt.tag]) {
-        let n = new window.Notification(this.props.title, opt);
-        n.onshow = (e) => {
-          this.props.onShow(e, opt.tag);
-          setTimeout(() => {
-            this.close(n);
-          }, this.props.timeout);
-        };
-        n.onclick = (e) => {this.props.onClick(e, opt.tag); };
-        n.onclose = (e) => {this.props.onClose(e, opt.tag); };
-        n.onerror = (e) => {this.props.onError(e, opt.tag); };
-
-        this.notifications[opt.tag] = n;
+        if (this.props.swRegistration && this.props.swRegistration.showNotification) {
+          this.props.swRegistration
+            .showNotification(this.props.title, opt)
+            .then(nEvent => {
+              const n = nEvent.notification;
+              this._bindHandlers(n, opt);
+            });
+        } else {
+          const n = new window.Notification(this.props.title, opt);
+          this._bindHandlers(n, opt);
+        }
       }
     }
 
@@ -148,7 +162,8 @@ Notification.propTypes = {
   onError: func,
   timeout: number,
   title: string.isRequired,
-  options: object
+  options: object,
+  swRegistration: object,
 };
 
 Notification.defaultProps = {
@@ -163,7 +178,8 @@ Notification.defaultProps = {
   onClose: () => {},
   onError: () => {},
   timeout: 5000,
-  options: {}
+  options: {},
+  swRegistration: null,
 };
 
 export default Notification;
